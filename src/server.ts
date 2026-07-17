@@ -6,6 +6,7 @@ import { connectDB } from './config/db';
 import { authenticateUser } from './middleware/auth';
 import medicineRoutes from './routes/medicineRoutes';
 import doseLogRoutes from './routes/doseLogRoutes';
+import linkRoutes from './routes/linkRoutes';
 import cron from 'node-cron';
 import { generateDailyDoses } from './utils/generateDailyDoses';
 import { markOverdueMissed } from './utils/markOverdueMissed';
@@ -39,6 +40,7 @@ app.get('/api/user/profile', authenticateUser, (req: Request, res: Response) => 
 // Mount routes
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/doses', doseLogRoutes);
+app.use('/api/links', linkRoutes);
 
 // Initialize connection and start server
 const startServer = () => {

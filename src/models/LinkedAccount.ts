@@ -2,7 +2,7 @@ import { Schema, model, Document, Types } from 'mongoose';
 
 export interface ILinkedAccount extends Document {
   caregiverId: Types.ObjectId;
-  patientId: Types.ObjectId;
+  patientId?: Types.ObjectId;
   status: 'pending' | 'accepted' | 'declined';
   invitedEmail?: string;
   createdAt: Date;
@@ -19,7 +19,7 @@ const LinkedAccountSchema = new Schema<ILinkedAccount>(
     patientId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
     },
     status: {
       type: String,
