@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
 import { connectDB } from './config/db';
 import { authenticateUser } from './middleware/auth';
+import medicineRoutes from './routes/medicineRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -30,6 +31,9 @@ app.get('/health', (req: Request, res: Response) => {
 app.get('/api/user/profile', authenticateUser, (req: Request, res: Response) => {
   res.status(200).json({ success: true, user: req.user });
 });
+
+// Mount medicine routes
+app.use('/api/medicines', medicineRoutes);
 
 // Initialize connection and start server
 const startServer = () => {
