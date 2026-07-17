@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
 import { connectDB } from './config/db';
+import { authenticateUser } from './middleware/auth';
 
 // Load environment variables
 dotenv.config();
@@ -23,6 +24,11 @@ app.use(express.json());
 // Basic health check route
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', message: 'MedTrack API is running' });
+});
+
+// Protected test route using authentication middleware
+app.get('/api/user/profile', authenticateUser, (req: Request, res: Response) => {
+  res.status(200).json({ success: true, user: req.user });
 });
 
 // Initialize connection and start server
