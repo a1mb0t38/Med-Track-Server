@@ -59,6 +59,25 @@ export const sendLinkInvite = async (req: Request, res: Response) => {
   }
 };
 
+// Caregiver gets their sent pending invites
+export const getSentInvites = async (req: Request, res: Response) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const invites = await LinkedAccount.find({
+      caregiverId: req.user.id,
+      status: 'pending'
+    }).populate('patientId', 'name email');
+
+    return res.status(200).json({ success: true, data: invites, message: 'Sent invites retrieved' });
+  } catch (error: any) {
+    console.error('Error in getSentInvites:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Server Error' });
+  }
+};
+
 // Patient gets their incoming invites
 export const getMyInvites = async (req: Request, res: Response) => {
   try {
@@ -134,7 +153,34 @@ export const getLinkedPatients = async (req: Request, res: Response) => {
       status: 'accepted'
     }).populate('patientId', 'name email');
 
-    return res.status(200).json({ success: true, data: links, message: 'Linked patients retrieved' });
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const results = await Promise.all(
+      links.map(async (link) => {
+        if (!link.patientId) {
+          return {
+            ...link.toObject(),
+            todaySummary: { taken: 0, total: 0 }
+          };
+        }
+        
+        const doses = await DoseLog.find({
+          userId: link.patientId._id,
+          scheduledTime: { $gte: startOfToday, $lte: endOfToday }
+        });
+        const taken = doses.filter(d => d.status === 'taken').length;
+        const total = doses.length;
+
+        return {
+          ...link.toObject(),
+          todaySummary: { taken, total }
+        };
+      })
+    );
+
+    return res.status(200).json({ success: true, data: results, message: 'Linked patients retrieved' });
   } catch (error: any) {
     console.error('Error in getLinkedPatients:', error);
     return res.status(500).json({ success: false, message: error.message || 'Server Error' });
@@ -209,7 +255,7 @@ export const getPatientDosesForCaregiver = async (req: Request, res: Response) =
       caregiverId: req.user.id,
       patientId: patientId,
       status: 'accepted'
-    });
+    }).populate('patientId', 'name email');
 
     if (!link) {
       return res.status(403).json({ success: false, message: 'Forbidden: No accepted link with this patient' });
@@ -265,6 +311,7 @@ export const getPatientDosesForCaregiver = async (req: Request, res: Response) =
     return res.status(200).json({ 
       success: true, 
       data: {
+        patient: link.patientId,
         todayDoses,
         adherenceHistory: adherence
       }, 

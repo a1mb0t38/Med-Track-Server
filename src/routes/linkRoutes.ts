@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   sendLinkInvite,
   getMyInvites,
+  getSentInvites,
   respondToInvite,
   getLinkedPatients,
   getLinkedCaregivers,
@@ -15,9 +16,14 @@ const router = Router();
 // Protect all link routes
 router.use(authenticateUser);
 
-// Invite routes
+// POST /api/links/invite
 router.post('/invite', sendLinkInvite);
+
+// GET /api/links/invites (incoming for patient)
 router.get('/invites', getMyInvites);
+
+// GET /api/links/sent-invites (outgoing from caregiver)
+router.get('/sent-invites', getSentInvites);
 router.put('/:id/respond', respondToInvite);
 
 // List connections

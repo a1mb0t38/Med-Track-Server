@@ -134,3 +134,30 @@ export const getAdherenceHistory = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: error.message || 'Server Error' });
   }
 };
+
+// Get detailed list of individual doses for a date range
+export const getDoseHistoryList = async (req: Request, res: Response) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
+    // Default to 30 days ago
+    const startDate = req.query.startDate 
+      ? new Date(req.query.startDate as string) 
+      : new Date(new Date().setDate(endDate.getDate() - 30));
+
+    const doses = await DoseLog.find({
+      userId: req.user.id,
+      scheduledTime: { $gte: startDate, $lte: endDate }
+    })
+    .sort({ scheduledTime: -1 })
+    .populate('medicineId', 'name dosage');
+
+    return res.status(200).json({ success: true, data: doses, message: 'Detailed dose history retrieved' });
+  } catch (error: any) {
+    console.error('Error in getDoseHistoryList:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Server Error' });
+  }
+};
