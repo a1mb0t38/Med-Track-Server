@@ -5,6 +5,10 @@ import * as dotenv from 'dotenv';
 import { connectDB } from './config/db';
 import { authenticateUser } from './middleware/auth';
 import medicineRoutes from './routes/medicineRoutes';
+import doseLogRoutes from './routes/doseLogRoutes';
+import cron from 'node-cron';
+import { generateDailyDoses } from './utils/generateDailyDoses';
+import { markOverdueMissed } from './utils/markOverdueMissed';
 
 // Load environment variables
 dotenv.config();
@@ -32,15 +36,30 @@ app.get('/api/user/profile', authenticateUser, (req: Request, res: Response) => 
   res.status(200).json({ success: true, user: req.user });
 });
 
-// Mount medicine routes
+// Mount routes
 app.use('/api/medicines', medicineRoutes);
+app.use('/api/doses', doseLogRoutes);
 
 // Initialize connection and start server
 const startServer = () => {
   console.log('Initializing MedTrack API...');
   
   // Connect to MongoDB asynchronously
-  connectDB().catch((error) => {
+  connectDB().then(() => {
+    // Schedule cron jobs once DB is connected
+    
+    // Run daily dose generation at 00:05 every day
+    cron.schedule('5 0 * * *', () => {
+      console.log('Cron: Starting generateDailyDoses');
+      generateDailyDoses();
+    });
+
+    // Run overdue check every hour
+    cron.schedule('0 * * * *', () => {
+      console.log('Cron: Starting markOverdueMissed check');
+      markOverdueMissed();
+    });
+  }).catch((error) => {
     console.error('Mongoose connection failed on startup:', error);
   });
 

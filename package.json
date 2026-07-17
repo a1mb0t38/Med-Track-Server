@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@better-auth/mongo-adapter": "^1.6.23",
+    "@types/node-cron": "^3.0.11",
     "better-auth": "^1.6.23",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
