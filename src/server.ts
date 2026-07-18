@@ -1,10 +1,11 @@
+import './env'; // MUST be first — loads env vars before anything else runs
+
 import dns from 'node:dns';
 dns.setDefaultResultOrder('ipv4first');
 
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import * as dotenv from 'dotenv';
 import { connectDB } from './config/db';
 import { authenticateUser } from './middleware/auth';
 import medicineRoutes from './routes/medicineRoutes';
@@ -13,9 +14,6 @@ import linkRoutes from './routes/linkRoutes';
 import cron from 'node-cron';
 import { generateDailyDoses } from './utils/generateDailyDoses';
 import { markOverdueMissed } from './utils/markOverdueMissed';
-
-// Load environment variables
-dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -49,17 +47,12 @@ app.use('/api/links', linkRoutes);
 const startServer = () => {
   console.log('Initializing MedTrack API...');
 
-  // Connect to MongoDB asynchronously
   connectDB().then(() => {
-    // Schedule cron jobs once DB is connected
-
-    // Run daily dose generation at 00:05 every day
     cron.schedule('5 0 * * *', () => {
       console.log('Cron: Starting generateDailyDoses');
       generateDailyDoses();
     });
 
-    // Run overdue check every hour
     cron.schedule('0 * * * *', () => {
       console.log('Cron: Starting markOverdueMissed check');
       markOverdueMissed();
