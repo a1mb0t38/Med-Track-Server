@@ -4,13 +4,14 @@ import { MongoClient } from 'mongodb';
 
 const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/medtrack';
 const client = new MongoClient(uri);
-const db = client.db();
+const db = client.db('medtrack'); // explicit db name so it never falls back to "test"
 
 export const auth = betterAuth({
   database: mongodbAdapter(db, {
     client,
   }),
   secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
   emailAndPassword: {
     enabled: true,
   },

@@ -1,3 +1,6 @@
+import dns from 'node:dns';
+dns.setDefaultResultOrder('ipv4first');
+
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -45,11 +48,11 @@ app.use('/api/links', linkRoutes);
 // Initialize connection and start server
 const startServer = () => {
   console.log('Initializing MedTrack API...');
-  
+
   // Connect to MongoDB asynchronously
   connectDB().then(() => {
     // Schedule cron jobs once DB is connected
-    
+
     // Run daily dose generation at 00:05 every day
     cron.schedule('5 0 * * *', () => {
       console.log('Cron: Starting generateDailyDoses');
