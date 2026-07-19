@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getTodayDoses, updateDoseStatus, getAdherenceHistory, getDoseHistoryList } from '../controllers/doseLogController';
 import { authenticateUser } from '../middleware/auth';
+import { auth } from '../config/auth';
 
 const router = Router();
 
