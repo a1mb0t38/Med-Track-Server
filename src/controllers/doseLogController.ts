@@ -3,6 +3,9 @@ import { Types } from 'mongoose';
 import { DoseLog } from '../models/DoseLog';
 import { Medicine } from '../models/Medicine';
 
+// Grace window: how many minutes before the scheduled time a dose can be marked "taken"
+const EARLY_TAKEN_GRACE_MINUTES = 30;
+
 // Get today's doses for the logged in user
 export const getTodayDoses = async (req: Request, res: Response) => {
   try {
@@ -18,8 +21,8 @@ export const getTodayDoses = async (req: Request, res: Response) => {
       userId: req.user.id,
       scheduledTime: { $gte: startOfToday, $lte: endOfToday }
     })
-    .sort({ scheduledTime: 1 })
-    .populate('medicineId', 'name dosage');
+      .sort({ scheduledTime: 1 })
+      .populate('medicineId', 'name dosage');
 
     return res.status(200).json({ success: true, data: doses, message: "Today's doses retrieved" });
   } catch (error: any) {
@@ -60,6 +63,26 @@ export const updateDoseStatus = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Dose already actioned' });
     }
 
+    // Prevent marking a dose "taken" too far ahead of its scheduled time.
+    // A small grace window is allowed since real-world routines aren't second-precise
+    // (e.g. taking a dose a few minutes early before leaving the house).
+    if (status === 'taken') {
+      const now = new Date();
+      const earliestAllowedTime = new Date(
+        doseLog.scheduledTime.getTime() - EARLY_TAKEN_GRACE_MINUTES * 60 * 1000
+      );
+
+      if (now < earliestAllowedTime) {
+        const minutesRemaining = Math.ceil(
+          (earliestAllowedTime.getTime() - now.getTime()) / (60 * 1000)
+        );
+        return res.status(400).json({
+          success: false,
+          message: `Too early to mark this dose as taken. You can mark it taken starting ${EARLY_TAKEN_GRACE_MINUTES} minutes before the scheduled time (in about ${minutesRemaining} more minute${minutesRemaining === 1 ? '' : 's'}).`,
+        });
+      }
+    }
+
     doseLog.status = status;
     doseLog.actionedAt = new Date();
     await doseLog.save();
@@ -90,8 +113,8 @@ export const getAdherenceHistory = async (req: Request, res: Response) => {
 
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
     // Default to 30 days ago
-    const startDate = req.query.startDate 
-      ? new Date(req.query.startDate as string) 
+    const startDate = req.query.startDate
+      ? new Date(req.query.startDate as string)
       : new Date(new Date().setDate(endDate.getDate() - 30));
 
     // Aggregate DoseLogs by day and status
@@ -144,16 +167,16 @@ export const getDoseHistoryList = async (req: Request, res: Response) => {
 
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
     // Default to 30 days ago
-    const startDate = req.query.startDate 
-      ? new Date(req.query.startDate as string) 
+    const startDate = req.query.startDate
+      ? new Date(req.query.startDate as string)
       : new Date(new Date().setDate(endDate.getDate() - 30));
 
     const doses = await DoseLog.find({
       userId: req.user.id,
       scheduledTime: { $gte: startDate, $lte: endDate }
     })
-    .sort({ scheduledTime: -1 })
-    .populate('medicineId', 'name dosage');
+      .sort({ scheduledTime: -1 })
+      .populate('medicineId', 'name dosage');
 
     return res.status(200).json({ success: true, data: doses, message: 'Detailed dose history retrieved' });
   } catch (error: any) {

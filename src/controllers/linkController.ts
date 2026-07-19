@@ -11,7 +11,7 @@ export const sendLinkInvite = async (req: Request, res: Response) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
-    
+
     // Optional: Check if req.user is a caregiver
     if (req.user.role !== 'caregiver') {
       return res.status(403).json({ success: false, message: 'Only caregivers can send invites' });
@@ -27,10 +27,16 @@ export const sendLinkInvite = async (req: Request, res: Response) => {
     // Check if patient exists
     const patientUser = await User.findOne({ email: lowerEmail });
 
-    // Check if invite already exists
+    // Check if invite already exists — match by invitedEmail OR patientId,
+    // regardless of which one is available at the time of this new request.
+    // This prevents duplicates even if the first invite was created before
+    // the patient existed (email-only) and this one resolves a patientId.
     const existingInvite = await LinkedAccount.findOne({
       caregiverId: req.user.id,
-      ...(patientUser ? { patientId: patientUser._id } : { invitedEmail: lowerEmail })
+      $or: [
+        { invitedEmail: lowerEmail },
+        ...(patientUser ? [{ patientId: patientUser._id }] : []),
+      ],
     });
 
     if (existingInvite) {
@@ -137,6 +143,19 @@ export const respondToInvite = async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, data: invite, message: `Invite ${action}ed` });
   } catch (error: any) {
     console.error('Error in respondToInvite:', error);
+
+    // Handle the case where accepting this invite collides with an
+    // already-accepted/pending link between the same caregiver and patient
+    // (e.g. a duplicate invite that slipped through before the fix above).
+    if (error.code === 11000) {
+      // This invite is now redundant since a link already exists — clean it up.
+      await LinkedAccount.findByIdAndDelete(req.params.id).catch(() => { });
+      return res.status(409).json({
+        success: false,
+        message: 'You are already linked with this caregiver. This duplicate invite has been removed.',
+      });
+    }
+
     return res.status(500).json({ success: false, message: error.message || 'Server Error' });
   }
 };
@@ -165,7 +184,7 @@ export const getLinkedPatients = async (req: Request, res: Response) => {
             todaySummary: { taken: 0, total: 0 }
           };
         }
-        
+
         const doses = await DoseLog.find({
           userId: link.patientId._id,
           scheduledTime: { $gte: startOfToday, $lte: endOfToday }
@@ -270,12 +289,12 @@ export const getPatientDosesForCaregiver = async (req: Request, res: Response) =
       userId: patientId,
       scheduledTime: { $gte: startOfToday, $lte: endOfToday }
     })
-    .sort({ scheduledTime: 1 })
-    .populate('medicineId', 'name dosage');
+      .sort({ scheduledTime: 1 })
+      .populate('medicineId', 'name dosage');
 
     // Get 30-day adherence
     const thirtyDaysAgo = new Date(new Date().setDate(now.getDate() - 30));
-    
+
     const adherence = await DoseLog.aggregate([
       {
         $match: {
@@ -308,14 +327,14 @@ export const getPatientDosesForCaregiver = async (req: Request, res: Response) =
       }
     ]);
 
-    return res.status(200).json({ 
-      success: true, 
+    return res.status(200).json({
+      success: true,
       data: {
         patient: link.patientId,
         todayDoses,
         adherenceHistory: adherence
-      }, 
-      message: 'Patient data retrieved successfully' 
+      },
+      message: 'Patient data retrieved successfully'
     });
   } catch (error: any) {
     console.error('Error in getPatientDosesForCaregiver:', error);

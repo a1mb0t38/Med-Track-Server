@@ -38,4 +38,6 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
-export const User = model<IUser>('User', UserSchema);
+// Explicitly point at Better Auth's actual collection name ('user', singular)
+// instead of Mongoose's default auto-pluralized 'users'.
+export const User = model<IUser>('User', UserSchema, 'user');
