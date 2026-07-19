@@ -48,6 +48,12 @@ export const authenticateUser = async (
     };
     req.session = session.session;
 
+
+    console.log("================================");
+    console.log(req.method, req.originalUrl);
+    console.log("Cookie:", !!req.headers.cookie);
+    console.log("Session:", session ? "VALID" : "NULL");
+
     next();
   } catch (error) {
     console.error('Authentication middleware error:', error);
