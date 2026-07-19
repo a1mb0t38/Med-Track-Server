@@ -4,7 +4,7 @@ import { MongoClient } from 'mongodb';
 
 const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/medtrack';
 const client = new MongoClient(uri);
-const db = client.db('medtrack'); // explicit db name so it never falls back to "test"
+const db = client.db('medtrack');
 
 export const auth = betterAuth({
   database: mongodbAdapter(db, {
@@ -25,4 +25,13 @@ export const auth = betterAuth({
       },
     },
   },
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: 'none',
+      secure: true,
+    },
+  },
+  trustedOrigins: [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+  ],
 });
