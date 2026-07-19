@@ -28,6 +28,7 @@ export const authenticateUser = async (
     const session = await auth.api.getSession({
       headers,
     });
+    console.log("Session: ", session);
 
     // 3. If session is invalid, block access
     if (!session || !session.user) {
