@@ -1,16 +1,37 @@
 import { Medicine, IMedicine } from '../models/Medicine';
 import { DoseLog } from '../models/DoseLog';
 
+// TODO: Make this per-user once user timezone preferences are supported.
+// For now, all patients are assumed to be in this timezone.
+const APP_TIMEZONE_OFFSET_MINUTES = 6 * 60; // UTC+6 (Bangladesh Standard Time)
+
+/**
+ * Builds a UTC Date representing a specific wall-clock time (HH:MM) on a given
+ * calendar day, in the app's configured timezone — independent of the server's
+ * own local timezone (which may be UTC on most hosts, e.g. Render).
+ */
+const buildScheduledTimeUTC = (baseDate: Date, hours: number, minutes: number): Date => {
+  // Get the UTC calendar date components of baseDate (already normalized to midnight UTC-based "today").
+  const utcYear = baseDate.getUTCFullYear();
+  const utcMonth = baseDate.getUTCMonth();
+  const utcDay = baseDate.getUTCDate();
+
+  // Construct the intended wall-clock time as if it were UTC, then subtract
+  // the app's timezone offset to get the true UTC instant it represents.
+  const asIfUTC = Date.UTC(utcYear, utcMonth, utcDay, hours, minutes, 0, 0);
+  return new Date(asIfUTC - APP_TIMEZONE_OFFSET_MINUTES * 60 * 1000);
+};
+
 /**
  * Generates today's pending DoseLogs for a single medicine document.
  * Safe to call multiple times — skips any scheduledTime that already has a DoseLog.
  */
 export const generateDosesForMedicine = async (medicine: IMedicine) => {
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  // Use UTC-based "today" consistently, then convert to the app's timezone below.
+  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const endOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
-  // Skip if medicine isn't active for today at all
   const startsAfterToday = medicine.startDate > endOfToday;
   const endedBeforeToday = medicine.endDate && medicine.endDate < startOfToday;
   if (!medicine.isActive || startsAfterToday || endedBeforeToday) {
@@ -21,9 +42,7 @@ export const generateDosesForMedicine = async (medicine: IMedicine) => {
 
   for (const timeString of medicine.times) {
     const [hours, minutes] = timeString.split(':').map(Number);
-
-    const scheduledTime = new Date(startOfToday);
-    scheduledTime.setHours(hours, minutes, 0, 0);
+    const scheduledTime = buildScheduledTimeUTC(startOfToday, hours, minutes);
 
     const existingDose = await DoseLog.findOne({
       medicineId: medicine._id,
@@ -53,8 +72,8 @@ export const generateDailyDoses = async () => {
     console.log('Running daily dose generation job...');
 
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const endOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
     const activeMedicines = await Medicine.find({
       isActive: true,
